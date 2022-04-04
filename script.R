@@ -2,18 +2,20 @@
 
 #paquetes####
 
+library(tidyverse)
+library(tidytext)
+library(readr)
 library(readtext)
 library(quanteda)
 library(quanteda.textstats)
 library(quanteda.textplots)
+library(quanteda.tidy)
 library(tokenizers)
 library(corpus)
 library(SnowballC)
 library(udpipe)
 library(stopwords)
-library(tidyverse)
-library(tidytext)
-library(readr)
+
 
 #variables####
 
@@ -43,15 +45,16 @@ audiencias <- readtext("entrada/audiencias/*.txt",
 corpus_audiencias <- corpus(audiencias, text_field = "text")
 #lista de etiquetas
 doc_id <- paste(audiencias$nombre,
-                audiencias$codigo,
                 sep = "-")
 docnames(corpus_audiencias) <-doc_id
 
 #análisis de palabras clave####
 
 audiencias %>%
-  filter(bloque == c("b4")) %>%   #elige grupo de referencia
-  corpus(text_field = "text") %>%
+  filter(codigo != c("c203","c301","c205")) %>%   #elige grupo de referencia
+  corpus(text_field = "text") -> corpus_temp
+docnames(corpus_temp) <-doc_id
+corpus_temp %>%
   tokens(remove_punct = TRUE,
          remove_numbers = FALSE) %>%
   tokens_remove(pattern = phrase(palabrasdemas), valuetype = 'fixed') %>%
@@ -60,9 +63,9 @@ audiencias %>%
   tokens_tolower() %>%
    tokens_ngrams(n = 2,                  #crea frases de n palabras
                 concatenator = " ") %>%
-  tokens_group(groups = sexo) %>%   #elige criterio de agrupación
+  tokens_group(groups = expertiz) %>%   #elige criterio de agrupación
   dfm() %>%
-  textstat_keyness(target = c("sa"), #elige grupo objetivo
+  textstat_keyness(target = c("escol"), #elige grupo objetivo
                    measure = "lr") %>%
   textplot_keyness(color = c("red2","gray"), #color de barras
                    labelcolor = "gray30", #color de texto
@@ -72,8 +75,7 @@ audiencias %>%
 
 #búsqueda de palabras clave####
 
-audiencias %>%
-  filter(bloque == c("b2")) %>%
-  corpus(text_field = "text") %>%
-  kwic("pensi*") %>%
-  textplot_xray()
+multiple <- expr(match("derech.\\s(\\w+\\s)+trabaj."))
+corpus_audiencias %>%
+  filter(codigo != c("c203","c301","c205")) -> toks   #elige grupo de referencia
+  kwic(toks, pattern = multiple)
