@@ -4,7 +4,6 @@
 
 library(tidyverse)
 library(tidytext)
-library(readr)
 library(readtext)
 library(quanteda)
 library(quanteda.textstats)
@@ -15,6 +14,7 @@ library(corpus)
 library(SnowballC)
 library(udpipe)
 library(stopwords)
+library(readxl)
 
 
 #variables####
@@ -75,7 +75,29 @@ corpus_temp %>%
 
 #búsqueda de palabras clave####
 
-multiple <- expr(match("derech.\\s(\\w+\\s)+trabaj."))
-corpus_audiencias %>%
-  filter(codigo != c("c203","c301","c205")) -> toks   #elige grupo de referencia
-  kwic(toks, pattern = multiple)
+#multiple <- expr(match("derech.\\s(\\w+\\s)+trabaj."))
+#corpus_audiencias %>%
+#  filter(codigo != c("c203","c301","c205")) -> toks   #elige grupo de referencia
+#  kwic(toks, pattern = multiple)
+
+
+#Separamos texto IPN
+ipn_data <- read_excel("entrada/iniciativas_ddff.xlsx")
+
+ipn_data <- ipn_data %>%
+  mutate(text = texto_completo) %>%
+  separate(text,
+           into = c("problema_solucionar", "text"),
+           sep = "SITUACIÓN IDEAL:") %>%
+  separate(text,
+           into = c("situacion_ideal", "text"),
+           sep = "QUÉ DEBE CONTEMPLAR LA NUEVA CONSTITUCIÓN:") %>%
+  separate(text,
+           into = c("que_contemplar", "text"),
+           sep = "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA?") %>%
+  separate(text,
+           into = c("argumentos", "text"),
+           sep = "PROPUESTA DE ARTICULADO") %>%
+  separate(text,
+           into = c("articulado", "proponentes"),
+           sep = "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA")
