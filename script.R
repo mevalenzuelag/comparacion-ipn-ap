@@ -115,5 +115,15 @@ proponentes <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuv
 
 #y recreamos la variable de texto completo
 
-##esto no sé cómo hacerlo
+str_remove(ipn_data$texto_completo, c("PROBLEMA A SOLUCIONAR:",
+                                      "SITUACIÓN IDEAL:",
+                                      "QUÉ DEBE CONTEMPLAR LA NUEVA CONSTITUCIÓN:",
+                                      "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA\\?",
+                                      "PROPUESTA DE ARTICULADO",
+                                      "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA")) -> ipn_data$texto_completo
 
+completo <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","texto_completo"))
+
+#ahora vemos si resulta convertirlos en corpus
+
+corpus_problema <- corpus(problema,text_field = "problema")
