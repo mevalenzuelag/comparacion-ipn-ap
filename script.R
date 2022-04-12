@@ -28,7 +28,8 @@ discursoindirecto <- c("dijo", "dije", "diría", "digamos",
                        "oye", "cierto")
 
 palabrasdemas <- c(stopwords_es, otras_stopwords,
-                   "hoy día", "hoy dia", "no cierto", "hoy en día")
+                   "hoy día", "hoy dia", "no cierto", "hoy en día",
+                   "muchas gracias","muchísimas gracias")
 
 #importar####
 
@@ -39,21 +40,17 @@ audiencias <- readtext("entrada/audiencias/*.txt",
                        dvsep = "_",
                        encoding = "UTF-8")
 
+audiencias$codigo <- str_remove(audiencias$codigo, "c")
+
 #crear corpus####
 
-corpus_audiencias <- corpus(audiencias, text_field = "text")
-#lista de etiquetas
-doc_id <- paste(audiencias$nombre,
-                sep = "-")
-docnames(corpus_audiencias) <-doc_id
-
-corpus(audiencias,)
+corpus_audiencias <- corpus(audiencias, text_field = "text",
+                            docid_field = "nombre")
 
 #análisis de palabras clave####
 
-audiencias %>%
+corpus_audiencias %>%
   filter(codigo != c("c203","c301","c205")) %>%   #elige grupo de referencia
-  corpus(text_field = "text", docid_field = "nombre") %>%
   tokens(remove_punct = TRUE,
          remove_numbers = FALSE) %>%
   tokens_remove(pattern = phrase(palabrasdemas), valuetype = 'fixed') %>%
@@ -79,12 +76,15 @@ audiencias %>%
 #  filter(codigo != c("c203","c301","c205")) -> toks   #elige grupo de referencia
 #  kwic(toks, pattern = multiple)
 
+#Iniciativas####
 
 #Separamos texto IPN
 ipn_data <- read_excel("entrada/iniciativas_ddff.xlsx")
 
+ipn_data$codigo <- as.character(ipn_data$codigo)
+
 ipn_data <- ipn_data %>%
-  mutate(text = texto_completo) %>%
+  mutate(text = texto) %>%
   separate(text,
            into = c("nada","text"),
            sep = "PROBLEMA A SOLUCIONAR:") %>%
@@ -104,6 +104,11 @@ ipn_data <- ipn_data %>%
            into = c("articulado", "proponentes"),
            sep = "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA")
 
+ipn_data <- ipn_data %>%
+  mutate(nombre = paste0("i_",nombre))
+
+ipn_data <- rename(ipn_data, text = texto)
+
 #y separamos de nuevo en unidades de texto
 
 problema <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","problema"))
@@ -115,15 +120,57 @@ proponentes <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuv
 
 #y recreamos la variable de texto completo
 
-str_remove(ipn_data$texto_completo, c("PROBLEMA A SOLUCIONAR:",
+str_remove(ipn_data$text, c("PROBLEMA A SOLUCIONAR:",
                                       "SITUACIÓN IDEAL:",
                                       "QUÉ DEBE CONTEMPLAR LA NUEVA CONSTITUCIÓN:",
                                       "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA\\?",
                                       "PROPUESTA DE ARTICULADO",
                                       "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA")) -> ipn_data$texto_completo
 
-completo <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","texto_completo"))
+iniciativas <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","text"))
+
+#fusionar bases de datos####
+
+audiencias <- mutate(audiencias,tipo = "ap")
+iniciativas <- mutate(iniciativas, tipo = "ipn")
+
+# dividir iniciativas por apoyos
+
+iniciativas %>%
+  mutate(quince = case_when(apoyos > 14999 ~ "si", apoyos <= 14999 ~ "no")) -> iniciativas
+
+bind_rows(audiencias, iniciativas) -> todo
 
 #ahora vemos si resulta convertirlos en corpus
+##yo sé que se puede hacer con una función, pero pa qué
 
 corpus_problema <- corpus(problema,text_field = "problema")
+corpus_ideal <- corpus(ideal,text_field = "ideal")
+corpus_contemplar <- corpus(contemplar,text_field = "contemplar")
+corpus_argumentos <- corpus(argumentos,text_field = "argumentos")
+corpus_articulado <- corpus(articulado,text_field = "articulado")
+corpus_proponentes <- corpus(proponentes,text_field = "proponentes")
+corpus_iniciativas <- corpus(iniciativas,text_field = "text")
+corpus_todo <- corpus(todo, text_field = "text", docid_field = "nombre")
+
+#Palabras clave mezcladas
+
+corpus_iniciativas %>%
+  #filter(codigo != c("c203","c301","c205")) %>%   #elige grupo de referencia
+  tokens(remove_punct = TRUE,
+         remove_numbers = FALSE) %>%
+  tokens_remove(pattern = stopwords_es, valuetype = 'fixed') %>%
+  #descartar palabras comunes
+  tokens_wordstem(language = "spanish") %>% #lematiza (palabras a raíz)
+  tokens_tolower() %>%
+  tokens_ngrams(n = 2,                  #crea frases de n palabras
+                concatenator = " ") %>%
+  tokens_group(groups = quince) %>%   #elige criterio de agrupación
+  dfm() %>%
+  textstat_keyness(target = c("si"), #elige grupo objetivo
+                   measure = "lr") %>%
+  textplot_keyness(color = c("green3","gray"), #color de barras
+                   labelcolor = "gray30", #color de texto
+                   labelsize = 4, #tamaño de etiquetas
+                   n = 20, #numero de palabras
+                   margin = 0.1)
