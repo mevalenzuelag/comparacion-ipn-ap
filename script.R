@@ -15,6 +15,7 @@ library(SnowballC)
 library(udpipe)
 library(stopwords)
 library(readxl)
+library(writexl)
 
 
 #variables####
@@ -101,3 +102,5 @@ ipn_data <- ipn_data %>%
   separate(text,
            into = c("articulado", "proponentes"),
            sep = "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA")
+
+write.csv(ipn_data,file = "salida\\iniciativas_ddff.csv")
