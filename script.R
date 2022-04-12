@@ -15,8 +15,6 @@ library(SnowballC)
 library(udpipe)
 library(stopwords)
 library(readxl)
-library(writexl)
-
 
 #variables####
 
@@ -88,14 +86,17 @@ ipn_data <- read_excel("entrada/iniciativas_ddff.xlsx")
 ipn_data <- ipn_data %>%
   mutate(text = texto_completo) %>%
   separate(text,
-           into = c("problema_solucionar", "text"),
+           into = c("nada","text"),
+           sep = "PROBLEMA A SOLUCIONAR:") %>%
+  separate(text,
+           into = c("problema", "text"),
            sep = "SITUACIÓN IDEAL:") %>%
   separate(text,
-           into = c("situacion_ideal", "text"),
+           into = c("ideal", "text"),
            sep = "QUÉ DEBE CONTEMPLAR LA NUEVA CONSTITUCIÓN:") %>%
   separate(text,
-           into = c("que_contemplar", "text"),
-           sep = "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA?") %>%
+           into = c("contemplar", "text"),
+           sep = "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA\\?") %>%
   separate(text,
            into = c("argumentos", "text"),
            sep = "PROPUESTA DE ARTICULADO") %>%
@@ -103,4 +104,16 @@ ipn_data <- ipn_data %>%
            into = c("articulado", "proponentes"),
            sep = "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA")
 
-write.csv(ipn_data,file = "salida\\iniciativas_ddff.csv")
+#y separamos de nuevo en unidades de texto
+
+problema <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","problema"))
+ideal <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","ideal"))
+contemplar <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","contemplar"))
+argumentos <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","argumentos"))
+articulado <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","articulado"))
+proponentes <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","proponentes"))
+
+#y recreamos la variable de texto completo
+
+##esto no sé cómo hacerlo
+
