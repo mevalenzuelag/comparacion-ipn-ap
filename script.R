@@ -47,13 +47,13 @@ doc_id <- paste(audiencias$nombre,
                 sep = "-")
 docnames(corpus_audiencias) <-doc_id
 
+corpus(audiencias,)
+
 #análisis de palabras clave####
 
 audiencias %>%
   filter(codigo != c("c203","c301","c205")) %>%   #elige grupo de referencia
-  corpus(text_field = "text") -> corpus_temp
-docnames(corpus_temp) <-doc_id
-corpus_temp %>%
+  corpus(text_field = "text", docid_field = "nombre") %>%
   tokens(remove_punct = TRUE,
          remove_numbers = FALSE) %>%
   tokens_remove(pattern = phrase(palabrasdemas), valuetype = 'fixed') %>%
