@@ -155,8 +155,9 @@ corpus_todo <- corpus(todo, text_field = "text", docid_field = "nombre")
 
 #Palabras clave mezcladas
 
-corpus_iniciativas %>%
-  #filter(codigo != c("c203","c301","c205")) %>%   #elige grupo de referencia
+todo %>%
+  filter(codigo == "412") %>%   #elige grupo de referencia
+  corpus(text_field = "text", docid_field = "nombre") %>%
   tokens(remove_punct = TRUE,
          remove_numbers = FALSE) %>%
   tokens_remove(pattern = stopwords_es, valuetype = 'fixed') %>%
@@ -165,12 +166,12 @@ corpus_iniciativas %>%
   tokens_tolower() %>%
   tokens_ngrams(n = 2,                  #crea frases de n palabras
                 concatenator = " ") %>%
-  tokens_group(groups = quince) %>%   #elige criterio de agrupación
+  tokens_group(groups = tipo) %>%   #elige criterio de agrupación
   dfm() %>%
-  textstat_keyness(target = c("si"), #elige grupo objetivo
+  textstat_keyness(target = c("ipn"), #elige grupo objetivo
                    measure = "lr") %>%
   textplot_keyness(color = c("green3","gray"), #color de barras
                    labelcolor = "gray30", #color de texto
-                   labelsize = 4, #tamaño de etiquetas
-                   n = 20, #numero de palabras
+                   labelsize = 3, #tamaño de etiquetas
+                   n = 40, #numero de palabras
                    margin = 0.1)
