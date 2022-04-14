@@ -25,7 +25,9 @@ discursoindirecto <- c("dijo", "dije", "diría", "digamos",
                        "llegué", "llegó",
                        "entonces", "final", "fin",
                        "creo", "pienso",
-                       "oye", "cierto")
+                       "oye", "cierto",
+                       "hoy dia", "hoy día", "hoy en día", "hoy en dia",
+                       "muchas gracias","muchísimas gracias")
 
 palabrasdemas <- c(stopwords_es, otras_stopwords,
                    "hoy día", "hoy dia", "no cierto", "hoy en día",
@@ -120,12 +122,15 @@ proponentes <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuv
 
 #y recreamos la variable de texto completo
 
-str_remove(ipn_data$text, c("PROBLEMA A SOLUCIONAR:",
-                                      "SITUACIÓN IDEAL:",
-                                      "QUÉ DEBE CONTEMPLAR LA NUEVA CONSTITUCIÓN:",
-                                      "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA\\?",
-                                      "PROPUESTA DE ARTICULADO",
-                                      "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA")) -> ipn_data$texto_completo
+#ipn_data$text <- str_remove(ipn_data$text, c("PROBLEMA A SOLUCIONAR:",
+#                            "SITUACIÓN IDEAL:",
+#                            "QUÉ DEBE CONTEMPLAR LA NUEVA CONSTITUCIÓN:",
+#                            "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA\\?",
+#                            "PROPUESTA DE ARTICULADO",
+#                            "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA"))
+
+ipn_data$text <- paste(problema$problema, ideal$ideal, contemplar$contemplar,
+                       argumentos$argumentos,articulado$articulado,proponentes$proponentes)
 
 iniciativas <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuvo_ap","codigo","text"))
 
@@ -156,10 +161,10 @@ corpus_todo <- corpus(todo, text_field = "text", docid_field = "nombre")
 #Palabras clave mezcladas
 
 todo %>%
-  filter(codigo == "412") %>%   #elige grupo de referencia
+  #filter(codigo == "412") %>%   #elige grupo de referencia
   corpus(text_field = "text", docid_field = "nombre") %>%
-  tokens(remove_punct = TRUE,
-         remove_numbers = FALSE) %>%
+  tokens(remove_punct = T,
+         remove_numbers = F) %>%
   tokens_remove(pattern = stopwords_es, valuetype = 'fixed') %>%
   #descartar palabras comunes
   tokens_wordstem(language = "spanish") %>% #lematiza (palabras a raíz)
