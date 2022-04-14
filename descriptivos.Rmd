@@ -25,19 +25,21 @@ ap_data <- df %>%
 ```
 
 
-```{r codigos-ipn}
+```{r codigos-ipn, fig.height=10}
 
 plot_aux <- ipn_data %>% 
   count(codigo) %>% 
   mutate(pct = n/ sum(n), 
-         pctlabel = paste0(round(pct*100), "%"))
+         pctlabel = paste0(round(pct*100), "%")) %>%
+  arrange(-n)
 
 
-plotX <- ggplot(plot_aux, aes(x = codigo, 
-               y = pct)) + 
+plotX <- ggplot(plot_aux, aes(x = reorder(codigo, pct), 
+               y = -pct)) + 
   geom_bar(stat = "identity",
-           fill = "cornflowerblue", 
-           color = "black") +
+           fill = "gold3", 
+           #color = "black"
+           ) +
   geom_text(aes(label = pctlabel), 
             vjust = -0.25) + 
   labs(y = "Porcentaje", 
@@ -59,6 +61,48 @@ plot_table <- ggtexttable(plot_table_aux, rows = NULL, theme = ttheme("mBlueWhit
 p <- ggarrange(plotX, plot_table, ncol = 2, nrow = 1, widths = c(2, 1))
 
 p
+
+```
+
+```{r codigos-ap, fig.height=13}
+
+plot_aux <- ap_data %>% 
+  count(codigo) %>% 
+  mutate(pct = n/ sum(n), 
+         pctlabel = paste0(round(pct*100), "%")) %>%
+  arrange(-n)
+
+
+plotX <- ggplot(plot_aux, aes(x = reorder(codigo, pct), 
+               y = -pct)) + 
+  geom_bar(stat = "identity",
+           fill = "skyblue3", 
+           #color = "black"
+           ) +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) + 
+  labs(y = "Porcentaje", 
+       x = "Código") + 
+  scale_y_continuous(breaks = c(0.2, 0.4, 0.6, 0.8, 1),
+                     labels = percent) +
+  coord_cartesian(ylim = c(0, 1)) +
+  coord_flip() + 
+  theme_minimal()
+
+plot_table_aux <- plot_aux %>% 
+  select(codigo, n, pctlabel) %>% 
+  rename(Código = codigo, 
+         N = n, 
+         Porcentaje = pctlabel)
+
+plot_table <- ggtexttable(plot_table_aux, rows = NULL, theme = ttheme("mBlueWhite"))
+
+p <- ggarrange(plotX, plot_table, ncol = 2, nrow = 1, widths = c(2, 1))
+
+p
+
+```
+```{r apilados, fig.height= 15}
 
 ```
 

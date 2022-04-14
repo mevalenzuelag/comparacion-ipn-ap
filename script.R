@@ -144,6 +144,17 @@ iniciativas <- mutate(iniciativas, tipo = "ipn")
 iniciativas %>%
   mutate(quince = case_when(apoyos > 14999 ~ "si", apoyos <= 14999 ~ "no")) -> iniciativas
 
+audiencias %>%
+  mutate(quince = "si") -> audiencias
+
+#crear variable de bloques para iniciativas
+
+iniciativas %>%
+  mutate(bloque = case_when(codigo < 200 ~ "b1",
+                            codigo < 300 & codigo >= 200 ~ "b2",
+                            codigo < 400 & codigo >= 300 ~ "b3",
+                            codigo >= 400 ~ "b4")) -> iniciativas
+
 bind_rows(audiencias, iniciativas) -> todo
 
 #ahora vemos si resulta convertirlos en corpus
@@ -161,7 +172,8 @@ corpus_todo <- corpus(todo, text_field = "text", docid_field = "nombre")
 #Palabras clave mezcladas
 
 todo %>%
-  #filter(codigo == "412") %>%   #elige grupo de referencia
+  filter(quince %in% "si") %>%   #elige grupo de referencia
+  filter(codigo %in% c("305","309")) %>%
   corpus(text_field = "text", docid_field = "nombre") %>%
   tokens(remove_punct = T,
          remove_numbers = F) %>%
@@ -175,10 +187,37 @@ todo %>%
   dfm() %>%
   textstat_keyness(target = c("ipn"), #elige grupo objetivo
                    measure = "lr") %>%
-  textplot_keyness(color = c("green3","gray"), #color de barras
+  textplot_keyness(color = c("red3","gray"), #color de barras
                    labelcolor = "gray30", #color de texto
-                   labelsize = 3, #tamaño de etiquetas
-                   n = 40, #numero de palabras
+                   labelsize = 4, #tamaño de etiquetas
+                   n = 20, #número de palabras
                    margin = 0.1)
 
-saveRDS(todo, "entrada/df_completa.RDS")
+df_todo <- as.tibble(todo)
+
+saveRDS(df_todo, "entrada/df_completa.RDS")
+
+#kwic, parte 2####
+
+kwic(corpus_todo, "sindic*", window = 9) -> sindicatos
+
+#redes
+
+todo %>%
+  filter(quince %in% "no") %>%   #elige grupo de referencia
+  filter(tipo %in% "ipn") %>%
+  #filter(bloque %in% c("b4")) %>%
+  corpus(text_field = "text", docid_field = "nombre") %>%
+  tokens(remove_punct = T,
+         remove_numbers = F) %>%
+  tokens_remove(pattern = stopwords_es, valuetype = 'fixed') %>%
+  #descartar palabras comunes
+  tokens_wordstem(language = "spanish") %>% #lematiza (palabras a raíz)
+  tokens_tolower() %>%
+  tokens_ngrams(n = 2,                  #crea frases de n palabras
+                concatenator = " ") %>%
+  fcm(context = "window", tri = F) -> fcmat
+feat <- names(topfeatures(fcmat, 66))
+fcm_select(fcmat, pattern = feat) %>%
+  textplot_network(min_freq = .5)
+
