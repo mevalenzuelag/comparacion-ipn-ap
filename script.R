@@ -175,3 +175,5 @@ todo %>%
                    labelsize = 3, #tamaño de etiquetas
                    n = 40, #numero de palabras
                    margin = 0.1)
+
+saveRDS(todo, "entrada/df_completa.RDS")

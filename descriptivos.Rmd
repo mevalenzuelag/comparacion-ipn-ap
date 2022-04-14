@@ -1,0 +1,64 @@
+---
+title: "Visualización descriptiva data"
+author: "FLACSO-Chile"
+date: "14-04-2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, 
+                      warning = FALSE, 
+                      message = FALSE, 
+                      dev = "png")
+library(tidyverse)
+library(scales)
+library(ggpubr)
+
+df <- readRDS("entrada/df_completa.RDS")
+
+ipn_data <- df %>% 
+  filter(tipo == "ipn")
+
+ap_data <- df %>% 
+  filter(tipo == "ap")
+
+```
+
+
+```{r codigos-ipn}
+
+plot_aux <- ipn_data %>% 
+  count(codigo) %>% 
+  mutate(pct = n/ sum(n), 
+         pctlabel = paste0(round(pct*100), "%"))
+
+
+plotX <- ggplot(plot_aux, aes(x = codigo, 
+               y = pct)) + 
+  geom_bar(stat = "identity",
+           fill = "cornflowerblue", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) + 
+  labs(y = "Porcentaje", 
+       x = "Código") + 
+  scale_y_continuous(breaks = c(0.2, 0.4, 0.6, 0.8, 1),
+                     labels = percent) +
+  coord_cartesian(ylim = c(0, 1)) +
+  coord_flip() + 
+  theme_minimal()
+
+plot_table_aux <- plot_aux %>% 
+  select(codigo, n, pctlabel) %>% 
+  rename(Código = codigo, 
+         N = n, 
+         Porcentaje = pctlabel)
+
+plot_table <- ggtexttable(plot_table_aux, rows = NULL, theme = ttheme("mBlueWhite"))
+
+p <- ggarrange(plotX, plot_table, ncol = 2, nrow = 1, widths = c(2, 1))
+
+p
+
+```
+
