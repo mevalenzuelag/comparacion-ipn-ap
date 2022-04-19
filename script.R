@@ -2,6 +2,7 @@
 
 #paquetes####
 
+library(devtools)
 library(tidyverse)
 library(tidytext)
 library(readtext)
@@ -49,35 +50,6 @@ audiencias$codigo <- str_remove(audiencias$codigo, "c")
 corpus_audiencias <- corpus(audiencias, text_field = "text",
                             docid_field = "nombre")
 
-#análisis de palabras clave####
-
-corpus_audiencias %>%
-  filter(codigo != c("c203","c301","c205")) %>%   #elige grupo de referencia
-  tokens(remove_punct = TRUE,
-         remove_numbers = FALSE) %>%
-  tokens_remove(pattern = phrase(palabrasdemas), valuetype = 'fixed') %>%
-                #descartar palabras comunes
-  tokens_wordstem(language = "spanish") %>% #lematiza (palabras a raíz)
-  tokens_tolower() %>%
-   tokens_ngrams(n = 2,                  #crea frases de n palabras
-                concatenator = " ") %>%
-  tokens_group(groups = expertiz) %>%   #elige criterio de agrupación
-  dfm() %>%
-  textstat_keyness(target = c("escol"), #elige grupo objetivo
-                   measure = "lr") %>%
-  textplot_keyness(color = c("red2","gray"), #color de barras
-                   labelcolor = "gray30", #color de texto
-                   labelsize = 4, #tamaño de etiquetas
-                   n = 20, #numero de palabras
-                   margin = 0.1)
-
-#búsqueda de palabras clave####
-
-#multiple <- expr(match("derech.\\s(\\w+\\s)+trabaj."))
-#corpus_audiencias %>%
-#  filter(codigo != c("c203","c301","c205")) -> toks   #elige grupo de referencia
-#  kwic(toks, pattern = multiple)
-
 #Iniciativas####
 
 #Separamos texto IPN
@@ -122,13 +94,6 @@ proponentes <- select(ipn_data, c("nombre","autoria","apoyos","solicito_ap","tuv
 
 #y recreamos la variable de texto completo
 
-#ipn_data$text <- str_remove(ipn_data$text, c("PROBLEMA A SOLUCIONAR:",
-#                            "SITUACIÓN IDEAL:",
-#                            "QUÉ DEBE CONTEMPLAR LA NUEVA CONSTITUCIÓN:",
-#                            "¿CON QUÉ ARGUMENTOS TÚ O TU ORGANIZACIÓN RESPALDAN ESTA PROPUESTA\\?",
-#                            "PROPUESTA DE ARTICULADO",
-#                            "BREVE RESEÑA SOBRE QUIÉN O QUIÉNES PROPONEN Y LA HISTORIA DE LA ELABORACIÓN DE LA INICIATIVA"))
-
 ipn_data$text <- paste(problema$problema, ideal$ideal, contemplar$contemplar,
                        argumentos$argumentos,articulado$articulado,proponentes$proponentes)
 
@@ -169,22 +134,25 @@ corpus_proponentes <- corpus(proponentes,text_field = "proponentes")
 corpus_iniciativas <- corpus(iniciativas,text_field = "text")
 corpus_todo <- corpus(todo, text_field = "text", docid_field = "nombre")
 
+df_todo <- as.tibble(todo)
+
+saveRDS(df_todo, "entrada/df_completa.RDS")
+
 #descriptivos####
 
 audiencias %>%
   count(codigo) -> cuenta_aud
 
-iniciativas %>%
-  filter(quince == "no") %>%
-  count(codigo) -> cuenta_ini
-
-
+audiencias %>%
+  filter(nombre == "cimundis") -> discapacidad
 
 #Palabras clave mezcladas
 
 todo %>%
+  mutate(tipo = case_when(tipo == "ipn" ~ "Iniciativas",
+                          tipo == "ap" ~ "Audiencias")) %>%
   filter(quince %in% "si") %>%   #elige grupo de referencia
-  filter(codigo %in% c("305","309")) %>%
+  filter(codigo %in% c("206")) %>%
   corpus(text_field = "text", docid_field = "nombre") %>%
   tokens(remove_punct = T,
          remove_numbers = F) %>%
@@ -196,28 +164,37 @@ todo %>%
                 concatenator = " ") %>%
   tokens_group(groups = tipo) %>%   #elige criterio de agrupación
   dfm() %>%
-  textstat_keyness(target = c("ipn"), #elige grupo objetivo
+  textstat_keyness(target = c("Iniciativas"), #elige grupo objetivo
                    measure = "lr") %>%
-  textplot_keyness(color = c("red3","gray"), #color de barras
+  textplot_keyness(color = c("gold3","gray"), #color de barras
                    labelcolor = "gray30", #color de texto
-                   labelsize = 4, #tamaño de etiquetas
+                   labelsize = 3, #tamaño de etiquetas
                    n = 20, #número de palabras
-                   margin = 0.1)
+                   ) +
+  scale_x_continuous(limits = c(-30,30)) +
+  labs(title = "Frases clave",
+       subtitle = "Derecho a la Seguridad Social",
+       #x = "Desigualdad relativa (χ²)",
+       x = "Tasa de Verosimilitud (-2LL)",
+       y = "") +
+  geom_vline(xintercept = c(-10,10), linetype = "dashed") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        legend.position = "bottom")
 
-df_todo <- as.tibble(todo)
+kwic####
 
-saveRDS(df_todo, "entrada/df_completa.RDS")
-
-#kwic, parte 2####
-
-kwic(corpus_todo, "sindic*", window = 9) -> sindicatos
+todo %>%
+  filter(codigo == "208") %>%
+  corpus(text_field = "text", docid_field = "nombre") %>%
+  kwic("establecimiento", window = 9) -> educacional
 
 #redes####
 
 todo %>%
-  filter(quince %in% "no") %>%   #elige grupo de referencia
-  filter(tipo %in% "ipn") %>%
-  #filter(bloque %in% c("b4")) %>%
+  filter(quince %in% "si") %>%   #elige grupo de referencia
+  #filter(tipo %in% "ap") %>%
+  filter(codigo %in% c("206")) %>%
   corpus(text_field = "text", docid_field = "nombre") %>%
   tokens(remove_punct = T,
          remove_numbers = F) %>%
@@ -230,27 +207,33 @@ todo %>%
   fcm(context = "window", tri = F) -> fcmat
 feat <- names(topfeatures(fcmat, 66))
 fcm_select(fcmat, pattern = feat) %>%
-  textplot_network(min_freq = .5)
+  textplot_network(min_freq = .5) +
+  labs(title = "Red de Co-locaciones",
+       subtitle = "Derecho a la Seguridad Social",
+       x = "",
+       y = "") +
+  theme_minimal()
 
 #arbol####
+#referencia:
+#https://quanteda.io/articles/pkgdown/replication/digital-humanities.html#11-clustering
 
-corpus_todo %>%
-  dfm(stem = T, remove_punct = T,
-      remove = stopwords_es) -> dfm_temp
-#recortar dfm
-dfm_temp %>%
-  dfm_trim(min_termfreq = 5, min_docfreq = 3) -> dfm2
-#clusteres jerárquicos con distancias normalizadas
-dfm_weight(dfm2, scheme = "prop") %>%
+devtools::install_github("quanteda/quanteda.corpora")
+library(quanteda.corpora)
+
+ddff_dfm <- tokens(corpus_todo, remove_punct = T) %>%
+  tokens_wordstem("es") %>%
+  tokens_remove(stopwords_es) %>%
+  dfm() %>%
+  dfm_trim(min_termfreq = 5, min_docfreq = 3)
+
+ddff_dist <- dfm_weight(ddff_dfm, scheme = "prop") %>%
   textstat_dist(method = "euclidean") %>%
-  as.dist() -> temp_dist
-#hacer clústeres con distancias de objetos
-hclust(temp_dist) -> temp_cluster
-#etiquetar
-docnames(dfm_temp) -> temp_cluster$labels
-#dibujar dendrograma
-plot(temp_cluster, xlab="", ylab="",
-     main = "Similitud discursiva entre entrevistas a representantes 2014 y 2018",
-     sub = "Distancia euclideana en frecuencias normalizadas de palabras")
+  as.dist() #falla en este paso
 
+ddff_cluster <- hclust(pres_dist_mat)
 
+ddff_cluster$labels <- docnames(ddff_dfm)
+
+plot(ddff_cluster, xlab = "", sub = "",
+     main = "Euclidean Distance on Normalized Token Frequency")
