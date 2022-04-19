@@ -169,6 +169,17 @@ corpus_proponentes <- corpus(proponentes,text_field = "proponentes")
 corpus_iniciativas <- corpus(iniciativas,text_field = "text")
 corpus_todo <- corpus(todo, text_field = "text", docid_field = "nombre")
 
+#descriptivos####
+
+audiencias %>%
+  count(codigo) -> cuenta_aud
+
+iniciativas %>%
+  filter(quince == "no") %>%
+  count(codigo) -> cuenta_ini
+
+
+
 #Palabras clave mezcladas
 
 todo %>%
@@ -201,7 +212,7 @@ saveRDS(df_todo, "entrada/df_completa.RDS")
 
 kwic(corpus_todo, "sindic*", window = 9) -> sindicatos
 
-#redes
+#redes####
 
 todo %>%
   filter(quince %in% "no") %>%   #elige grupo de referencia
@@ -220,4 +231,26 @@ todo %>%
 feat <- names(topfeatures(fcmat, 66))
 fcm_select(fcmat, pattern = feat) %>%
   textplot_network(min_freq = .5)
+
+#arbol####
+
+corpus_todo %>%
+  dfm(stem = T, remove_punct = T,
+      remove = stopwords_es) -> dfm_temp
+#recortar dfm
+dfm_temp %>%
+  dfm_trim(min_termfreq = 5, min_docfreq = 3) -> dfm2
+#clusteres jerárquicos con distancias normalizadas
+dfm_weight(dfm2, scheme = "prop") %>%
+  textstat_dist(method = "euclidean") %>%
+  as.dist() -> temp_dist
+#hacer clústeres con distancias de objetos
+hclust(temp_dist) -> temp_cluster
+#etiquetar
+docnames(dfm_temp) -> temp_cluster$labels
+#dibujar dendrograma
+plot(temp_cluster, xlab="", ylab="",
+     main = "Similitud discursiva entre entrevistas a representantes 2014 y 2018",
+     sub = "Distancia euclideana en frecuencias normalizadas de palabras")
+
 
