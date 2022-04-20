@@ -231,9 +231,10 @@ ddff_dist <- dfm_weight(ddff_dfm, scheme = "prop") %>%
   textstat_dist(method = "euclidean") %>%
   as.dist() #falla en este paso
 
-ddff_cluster <- hclust(pres_dist_mat)
+ddff_cluster <- hclust(ddff_dist)
 
 ddff_cluster$labels <- docnames(ddff_dfm)
 
 plot(ddff_cluster, xlab = "", sub = "",
      main = "Euclidean Distance on Normalized Token Frequency")
+
