@@ -237,3 +237,4 @@ ddff_cluster$labels <- docnames(ddff_dfm)
 
 plot(ddff_cluster, xlab = "", sub = "",
      main = "Euclidean Distance on Normalized Token Frequency")
+
