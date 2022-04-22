@@ -218,7 +218,7 @@ fcm_select(fcmat, pattern = feat) %>%
 #referencia:
 #https://quanteda.io/articles/pkgdown/replication/digital-humanities.html#11-clustering
 
-devtools::install_github("quanteda/quanteda.corpora")
+devtools::install_github("quanteda/quanteda.corpora", force = T)
 library(quanteda.corpora)
 
 ddff_dfm <- tokens(corpus_todo, remove_punct = T) %>%
@@ -229,9 +229,9 @@ ddff_dfm <- tokens(corpus_todo, remove_punct = T) %>%
 
 ddff_dist <- dfm_weight(ddff_dfm, scheme = "prop") %>%
   textstat_dist(method = "euclidean") %>%
-  as.dist() #falla en este paso
+  as.dist()
 
-ddff_cluster <- hclust(pres_dist_mat)
+ddff_cluster <- hclust(ddff_dist)
 
 ddff_cluster$labels <- docnames(ddff_dfm)
 
