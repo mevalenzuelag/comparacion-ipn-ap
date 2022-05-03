@@ -1,0 +1,661 @@
+---
+title: "ms amenazas"
+author: "Pablo Cortes"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+    toc_depth: '3'
+    number_sections: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    number_sections: yes
+---
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo=FALSE,error=FALSE)
+```
+
+```{r}
+library(readxl)
+library(tidyverse) 
+library(gridExtra) 
+library(bibliometrix)
+library(tools) 
+library(ggpubr)
+library(DT)
+library(igraph)
+library(quanteda)
+library(quanteda.textplots)
+library(stm)
+library(topicmodels)
+library(tidytext)
+
+```
+
+```{r}
+
+data <- read_excel("CC_2021-08-24.xlsx")
+
+data<-data %>% 
+  filter(Utilidad == "Y")
+```
+
+# Table 1. Main information
+
+```{r}
+#Generamos database_bibliometrix ue solo incluye Metadatos (eliminamos las primeras dos columnas)
+data_bibliometrix<-data[,10:63]
+```
+
+```{r}
+# Aplicamos un análisis bibliométrico con bibliometrix
+results<- biblioAnalysis(data_bibliometrix, sep=";")
+```
+
+```{r,results='hide'}
+summary(results, k=10, pause=F, width=130)
+```
+
+```{r}
+main_information <- data.frame(Description=c("Timespan", "Documents", "Sources",
+"Authors", "Authors of single-authored documents","Authors of multi-authored documents", "Single-authored documents","Keywords-Plus", "Author's Keywords"),
+                 Counts=c("1966-2021","1569", "642",
+"4844", "95","4749", "106","5861", "4402"))
+
+datatable(main_information, class = 'cell-border stripe',
+          options = list(searching=FALSE, pageLength=10))
+```
+
+
+# Figure 2. Annual number of publications
+
+```{r}
+conteo<-data%>%
+    count(PY)%>%
+    mutate(cumulative=cumsum(n)) %>%
+    mutate(percentage=100*(n / sum(n)))%>%
+    mutate(percentage_cum=100*(cumulative / sum(n))) %>% 
+    mutate(across(where(is.numeric), round, 2))
+```
+
+```{r,results='hide'}
+### Generamos el objeto conteo_ascendente_year con cálculos a utilizar en la sección resultados
+
+conteo_ascendente_year<-conteo %>% 
+            arrange(percentage_cum)
+
+datatable(conteo_ascendente_year, class = 'cell-border stripe',
+          options = list(searching=FALSE, pageLength=15))
+
+```
+
+```{r,results='hide'}
+### Generamos el objeto conteo_ascendente_n con cálculos a utilizar en la sección resultados
+conteo_ascendente_n<-conteo %>% 
+  arrange(n)
+datatable(conteo_ascendente_n, class = 'cell-border stripe',
+          options = list(searching=FALSE, pageLength=15))
+
+```
+
+```{r,fig.height=5, fig.width=10}
+TrendLine1<-ggplot(conteo, aes(x = PY, y = n))+
+	geom_line(colour="#333333", size=1)+
+    geom_point(aes(x = PY, y = n), colour="#333333",size =4) +
+	scale_x_continuous(breaks=c(1960,1965,1970,1975,1980,1985,1990,1995,2000,2005,2010,2015, 2021),limits=c(1965, 2021))+
+                       scale_y_continuous(breaks=c(0,20,40,60,80,100,120,140,160,180,200,220,240),limits=c(0,240))+
+    xlab("Year") + ylab("Number of publications")+
+  theme(axis.text =element_text(size=16,color="#13100D"),
+        axis.title=element_text(size=23,color="#13100D"),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#13100D", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+
+TrendLine1
+
+```
+
+# Figure 3. Top 10 publishing journals
+```{r}
+Source<-as.data.frame(results$Sources)
+```
+
+```{r, results='hide'}
+Top_Ten<-Source %>% 
+  mutate(Source = str_to_title(SO)) %>% #Convertir a title case
+  arrange(-Freq) %>% 
+  filter(Freq > 14)
+datatable(Top_Ten, class = 'cell-border stripe',
+          options = list(searching=FALSE, pageLength=10))
+```
+
+```{r,fig.height=5, fig.width=8}
+ggdotchart(Top_Ten, x = "Source", y = "Freq",
+           sorting = "descending",                       
+           add = "segments",                             
+           rotate = TRUE,                                
+           dot.size = 10,                                
+           label = Top_Ten$Freq,                        
+           font.label = list(color = "white", size = 11, vjust = 0.5),               
+           ggtheme = theme_pubr())+                      
+
+     xlab("") + ylab("Number of publications")+
+    scale_y_continuous(breaks=c(0,10,20,30,40,50),limits=c(0, 52))+
+    theme(axis.text =element_text(size=13,color="#191919"),
+        axis.title=element_text(size=20,color="#191919"),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#191919", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+```
+
+# Figure 4. Top 10 affiliations
+
+```{r}
+Institutions<-as.data.frame(results$Affiliations)
+```
+
+```{r}
+#Exportando la base de datos
+#library(tibble)
+#inst<-as_tibble(Institutions)
+#write.table(inst,"Institutions.txt",sep="\t")
+#data_Institutions <- read_excel("Institutions.xlsx")
+```
+
+```{r, results='hide'}
+Top_Ten<-Institutions %>% 
+  mutate(Affiliation = str_to_title(AFF)) %>% #Convertir a title case
+  arrange(-Freq) %>% 
+  filter(Freq > 70)
+datatable(Top_Ten, class = 'cell-border stripe',
+          options = list(searching=FALSE, pageLength=10))
+```
+
+```{r,fig.height=5, fig.width=8}
+ggdotchart(Top_Ten, x = "Affiliation", y = "Freq",
+           sorting = "descending",                       
+           add = "segments",                             
+           rotate = TRUE,                                
+           dot.size = 10,                                
+           label = Top_Ten$Freq,                        
+           font.label = list(color = "white", size = 11, vjust = 0.5),               
+           ggtheme = theme_pubr())+                      
+
+     xlab("") + ylab("Number of publications")+
+    scale_y_continuous(breaks=c(0,100,200,300,400,500),limits=c(0, 550))+
+    theme(axis.text =element_text(size=13,color="#191919"),
+        axis.title=element_text(size=20,color="#191919"),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#191919", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+```
+
+# Figure 5. Top 13 productive authors
+
+```{r}
+Authors<-as.data.frame(results$Authors)
+```
+
+```{r}
+#Exportando la base de datos
+#aut<-as_tibble(Authors)
+#write.table(aut,"Authors",sep="\t")
+#data_Authors <- read_excel("Authors.xlsx")
+#
+#MORENO PI -->MORENO P
+#GARREAUD RA-->GARREAUD R
+#CAVIERES LA -->CAVIERES L
+```
+
+
+
+```{r, results='hide'}
+Top_Ten<-Authors %>% 
+  mutate(Author = str_to_title(AU)) %>% #Convertir a title case
+  arrange(-Freq) %>% 
+  filter(Freq > 14)
+datatable(Top_Ten, class = 'cell-border stripe',
+          options = list(searching=FALSE, pageLength=13))
+```
+
+```{r,fig.height=5, fig.width=8}
+ggdotchart(Top_Ten, x = "Author", y = "Freq",
+          sorting = "descending",                       
+           add = "segments",                             
+           rotate = TRUE,                                
+           dot.size = 10,                                
+           label = Top_Ten$Freq,                        
+           font.label = list(color = "white", size = 11, vjust = 0.5),               
+           ggtheme = theme_pubr())+                      
+
+     xlab("") + ylab("Number of publications")+
+    scale_y_continuous(breaks=c(0,10,20,30),limits=c(0,35))+
+    theme(axis.text =element_text(size=13,color="#191919"),
+        axis.title=element_text(size=20,color="#191919"),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#191919", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+```
+
+
+
+
+# Figure 6. Top 10 most relevant author´s keywords over period 1990-2021.
+
+# Figure 7. Top 20 most relevant words based on publishes abstracts. A = 1990-1999, B = 2000-2009, C = 2010-2021 and D = 1990-2021.
+
+```{r}
+data_1999<-data %>% 
+filter(PY< 2000)
+
+data_2009<-data%>%
+filter(PY>1999 & PY< 2010)
+
+data_2021<-data %>% 
+filter(PY> 2009)
+```
+
+```{r, warning=FALSE}
+corpus_abstract <- corpus(data$AB, docnames = data$doc_id, docvars = data.frame(year = data$PY))
+corpus_abstract_1999 <- corpus(data_1999$AB, docnames = data_1999$doc_id, docvars = data.frame(year = data_1999$PY))
+corpus_abstract_2009 <- corpus(data_2009$AB, docnames = data_2009$doc_id, docvars = data.frame(year = data_2009$PY))
+corpus_abstract_2021 <- corpus(data_2021$AB, docnames = data_2021$doc_id, docvars = data.frame(year = data_2021$PY))
+```
+
+```{r, warning=FALSE}
+list_stopwords <- readLines("list_stopwords.csv", encoding = "UTF-8")
+other_stopwords<- c("elsevier","b.v","rights"," reserved","-1","-2","yr","study","b.p","bp")
+original_word<-c("sp","glacier","southern")
+new_word<-c("species","glaciers","south")
+
+```
+
+```{r}
+toks_all <- corpus_abstract %>%
+    tokens(remove_punct = TRUE,remove_numbers = TRUE, remove_symbols = TRUE) %>%
+    tokens_tolower() %>%
+    tokens_remove(stopwords("english")) %>% 
+    tokens_select(c(-1,list_stopwords,other_stopwords), selection = "remove", padding = FALSE) %>% 
+    tokens_replace(pattern=original_word, 
+                  replacement=new_word)
+
+  toks_1999 <- corpus_abstract_1999 %>%
+    tokens(remove_punct = TRUE,remove_numbers = TRUE, remove_symbols = TRUE) %>%
+    tokens_tolower() %>%
+    tokens_remove(stopwords("english")) %>% 
+   tokens_select(c(-1,list_stopwords,other_stopwords), selection = "remove", padding = FALSE) %>% 
+    tokens_replace(pattern=original_word, 
+                  replacement=new_word)
+
+toks_2009 <- corpus_abstract_2009 %>%
+    tokens(remove_punct = TRUE,remove_numbers = TRUE, remove_symbols = TRUE) %>%
+    tokens_tolower() %>%
+    tokens_remove(stopwords("english")) %>% 
+    tokens_select(c(-1,list_stopwords,other_stopwords), selection = "remove", padding = FALSE) %>% 
+    tokens_replace(pattern=original_word, 
+                  replacement=new_word)
+
+toks_2021 <- corpus_abstract_2021 %>%
+    tokens(remove_punct = TRUE,remove_numbers = TRUE, remove_symbols = TRUE) %>%
+    tokens_tolower() %>%
+    tokens_remove(stopwords("english")) %>% 
+    tokens_select(c(-1,list_stopwords,other_stopwords), selection = "remove", padding = FALSE) %>% 
+    tokens_replace(pattern=original_word, 
+                  replacement=new_word)
+```
+
+```{r}
+wfreq_all <- toks_all %>%
+  unlist()%>% 
+  table() %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  head(20) %>%
+  rename("unigram 1990-2021"= 1,frequency = 2)
+
+
+wfreq_1999 <- toks_1999 %>%
+  unlist()%>% 
+  table() %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  head(20) %>%
+  rename("unigram 1990-1999" = 1,frequency = 2)
+
+wfreq_2009 <- toks_2009 %>%
+  unlist()%>% 
+  table() %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  head(20) %>%
+  rename("unigram 2000-2009" = 1,frequency = 2)
+
+wfreq_2021 <- toks_2021 %>%
+  unlist()%>% 
+  table() %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  head(20) %>%
+  rename("unigram 2010-2021" = 1,frequency = 2)
+
+```
+
+```{r, results='hide'}
+wfreq<-cbind(wfreq_1999,wfreq_2009,wfreq_2021,wfreq_all)
+datatable(wfreq, class = 'cell-border stripe',
+          options = list(searching=FALSE, pageLength=20))
+
+```
+
+```{r}
+hist_1999<-wfreq_1999 %>%
+  rename(unigram="unigram 1990-1999") %>% 
+  ggplot(aes(x = reorder(unigram, -frequency, mean), y = frequency)) +
+  geom_bar(stat = "identity") +
+  labs(title=NULL,x=NULL, y=NULL)+
+  theme(axis.text =element_text(size=12,color="#191919"),
+        axis.text.x = element_text(angle = 45,hjust = 1),
+        axis.title=element_text(size=20,color="#191919"),
+        plot.title = element_text(color="#191919", hjust=0),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#191919", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+
+hist_2009<-wfreq_2009 %>%
+  rename(unigram="unigram 2000-2009") %>% 
+  ggplot(aes(x = reorder(unigram, -frequency, mean), y = frequency)) +
+  geom_bar(stat = "identity") +
+  labs(title=NULL,x=NULL, y=NULL)+
+  theme(axis.text =element_text(size=12,color="#191919"),
+        axis.text.x = element_text(angle = 45,hjust = 1),
+        axis.title=element_text(size=20,color="#191919"),
+        plot.title = element_text(color="#191919", hjust=0),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#191919", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+
+hist_2021<-wfreq_2021 %>%
+  rename(unigram="unigram 2010-2021") %>% 
+  ggplot(aes(x = reorder(unigram, -frequency, mean), y = frequency)) +
+  geom_bar(stat = "identity") +
+  labs(title=NULL,x=NULL, y=NULL)+
+  theme(axis.text =element_text(size=12,color="#191919"),
+        axis.text.x = element_text(angle = 45,hjust = 1),
+        axis.title=element_text(size=20,color="#191919"),
+        plot.title = element_text(color="#191919", hjust=0),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#191919", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+
+hist_all<-wfreq_all %>%
+  rename(unigram="unigram 1990-2021") %>% 
+  ggplot(aes(x = reorder(unigram, -frequency, mean), y = frequency)) +
+  geom_bar(stat = "identity") +
+labs(title=NULL,x=NULL, y=NULL)+
+  theme(axis.text =element_text(size=12,color="#191919"),
+        axis.text.x = element_text(angle = 45,hjust = 1),
+        axis.title=element_text(size=20,color="#191919"),
+        plot.title = element_text(color="#191919", hjust=0),
+        panel.background = element_blank(),
+        panel.border = element_rect(color="#191919", size=1, fill=NA),
+        panel.grid.major =  element_line(colour = "#708090",size=0.1))
+```
+
+```{r,fig.height=10, fig.width=9}
+figure <- ggarrange(hist_1999,hist_2009,hist_2021,hist_all,
+                    labels = c("A", "B","C","D"),
+                    ncol = 2, nrow = 2,
+                      heights = c(0.5, 0.5))
+annotate_figure(figure,
+                left = text_grob("Frequency", color = "#191919", rot = 90, size=20))
+
+```
+
+# Table 2. Top 20 most relevant bigrams based on publishes abstracts over period 1990-2021.
+```{r}
+toks_bigram<- toks_all %>%
+  unlist()
+
+word_bigrams_all <- data.frame(toks_bigram[1:length(toks_bigram)-1], 
+                       toks_bigram[2:length(toks_bigram)]) %>%
+  rename(Word1 = 1,
+                Word2 = 2) %>%
+  mutate(Bigram = paste0(Word1, " ", Word2)) %>%
+  group_by(Bigram) %>%
+  summarise(Frequency = n()) %>%
+  arrange(-Frequency) %>% 
+  head(20)%>%
+  rename("bigram 1990-2021" = 1,frequency = 2)
+
+toks_bigram_1999 <- toks_1999 %>%
+  unlist()
+
+word_bigrams_1999 <- data.frame(toks_bigram_1999[1:length(toks_bigram_1999)-1], 
+                       toks_bigram_1999[2:length(toks_bigram_1999)]) %>%
+  rename(Word1 = 1,
+                Word2 = 2) %>%
+  mutate(Bigram = paste0(Word1, " ", Word2)) %>%
+  group_by(Bigram) %>%
+  summarise(Frequency = n()) %>%
+  arrange(-Frequency) %>% 
+  head(20)%>%
+  rename("bigram 1990-1999" = 1,frequency = 2)
+
+toks_bigram_2009 <- toks_2009 %>%
+  unlist()
+
+word_bigrams_2009 <- data.frame(toks_bigram_2009[1:length(toks_bigram_2009)-1], 
+                       toks_bigram_2009[2:length(toks_bigram_2009)]) %>%
+  rename(Word1 = 1,
+                Word2 = 2) %>%
+  mutate(Bigram = paste0(Word1, " ", Word2)) %>%
+  group_by(Bigram) %>%
+  summarise(Frequency = n()) %>%
+  arrange(-Frequency) %>% 
+  head(20)%>%
+  rename("bigram 2000-2009" = 1,frequency = 2)
+
+toks_bigram_2021 <- toks_2021%>%
+  unlist()
+word_bigrams_2021 <- data.frame(toks_bigram_2021[1:length(toks_bigram_2021)-1], 
+                       toks_bigram_2021[2:length(toks_bigram_2021)]) %>%
+  rename(Word1 = 1,
+                Word2 = 2) %>%
+  mutate(Bigram = paste0(Word1, " ", Word2)) %>%
+  group_by(Bigram) %>%
+  summarise(Frequency = n()) %>%
+  arrange(-Frequency) %>% 
+  head(20)%>%
+  rename("bigram 2010-2021" = 1,frequency = 2)
+
+```
+
+```{r}
+bigramfreq<-cbind(word_bigrams_1999,word_bigrams_2009,word_bigrams_2021,word_bigrams_all)
+
+datatable(bigramfreq, class = 'cell-border stripe',
+          options = list(pageLength=20))
+
+```
+
+
+## Table 3. Selective bigrams from abstracts
+
+### cliamte change
+```{r}
+unigram_context<-kwic(toks_all, pattern=phrase("climate change"), 5)
+  
+
+datatable(unigram_context, class = 'cell-border stripe',
+          options = list(pageLength=20))
+
+```
+
+
+
+### methane
+```{r}
+unigram_context<-kwic(toks_all, pattern=phrase("methane"), 5)
+  
+
+datatable(unigram_context, class = 'cell-border stripe',
+          options = list(pageLength=20))
+
+```
+
+
+# Figure 9. Words co-ocurrence network based on publishes abstracts. A = 1990-1999, B = 2000-2009, C = 2010-2021 and D = 1990-2021.
+
+```{r}
+fcmat_all <- fcm(toks_all, context = "window", tri = FALSE)
+feat_all <- names(topfeatures(fcmat_all, 20, decreasing = TRUE))
+fcm_20_all<-fcm_select(fcmat_all, pattern = feat_all)
+
+fcmat_1999 <- fcm(toks_1999, context = "window", tri = FALSE)
+feat_1999 <- names(topfeatures(fcmat_1999, 20, decreasing = TRUE))
+fcm_20_1999<-fcm_select(fcmat_1999, pattern = feat_1999)
+
+fcmat_2009 <- fcm(toks_2009, context = "window", tri = FALSE)
+feat_2009 <- names(topfeatures(fcmat_2009, 20, decreasing = TRUE))
+fcm_20_2009<-fcm_select(fcmat_2009, pattern = feat_2009)
+
+
+fcmat_2021 <- fcm(toks_2021, context = "window", tri = FALSE)
+feat_2021 <- names(topfeatures(fcmat_2021, 20, decreasing = TRUE))
+fcm_20_2021<-fcm_select(fcmat_2021, pattern = feat_2021)
+
+```
+
+
+```{r}
+co_net_1999<-textplot_network(fcm_20_1999,min_freq = 0.5,
+                 edge_color="#333333",
+                 edge_alpha=0.25,
+                 vertex_color="#191919",
+                 vertex_labelcolor="#191919",
+                 vertex_labelsize = 3.5,
+                 vertex_size = (rowSums(fcm_20_1999)/min(rowSums(fcm_20_1999)))/3)
+
+co_net_2009<-textplot_network(fcm_20_2009,min_freq = 0.5,
+                 edge_color="#333333",
+                 edge_alpha=0.25,
+                 vertex_color="#191919",
+                 vertex_labelcolor="#191919",
+                 vertex_labelsize = 3.5,
+                 vertex_size = (rowSums(fcm_20_2009)/min(rowSums(fcm_20_2009)))-0.5)
+
+co_net_2021<-textplot_network(fcm_20_2021,min_freq = 0.5,
+                 edge_color="#333333",
+                 edge_alpha=0.25,
+                 vertex_color="#191919",
+                 vertex_labelcolor="#191919",
+                 vertex_labelsize = 3.5,
+                 vertex_size = 1.2*rowSums(fcm_20_2021)/min(rowSums(fcm_20_2021)))
+
+co_net_all<-textplot_network(fcm_20_all,min_freq = 0.5,
+                 edge_color="#333333",
+                 edge_alpha=0.25,
+                 vertex_color="#191919",
+                 vertex_labelcolor="#191919",
+                 vertex_labelsize = 3.5,
+                 vertex_size = 1.2*rowSums(fcm_20_all)/min(rowSums(fcm_20_all)))
+
+figure <- ggarrange(co_net_1999,co_net_2009,co_net_2021,co_net_all,
+                    labels = c("A", "B","C","D"),
+                    ncol = 2, nrow = 2)
+
+figure             
+```
+
+# Table 4.Top ten terms per topic from latent Dirichlet allocation modeling.
+
+```{r}
+#https://www.r-bloggers.com/2019/10/advancing-text-mining-with-r-and-quanteda-2/
+
+dfm_word<-dfm(toks_all, tolower = FALSE)
+
+mydfm.un.trim <-
+  dfm_trim(
+    dfm_word,
+    min_docfreq = 0.075,
+    # min 7.5%
+    max_docfreq = 0.90,
+    # max 90%
+    docfreq_type = "prop"
+  ) 
+
+# Convert the trimmed DFM to a topicmodels object
+dfm2topicmodels <- convert(mydfm.un.trim, to = "topicmodels")
+
+#Set parameters for Gibbs sampling
+burnin <- 4000
+iter <- 2000
+thin <- 500
+seed <-list(2003,5,63,100001,765)
+nstart <- 5
+best <- TRUE
+
+#Number of topics
+k <- 5
+
+lda.model <- LDA(dfm2topicmodels,k, method="Gibbs", control=list(nstart=nstart, seed = seed, best=best, burnin = burnin, iter = iter, thin=thin))
+```
+
+```{r}
+topics_dla<-tidy(lda.model, matrix="beta")
+ 
+#per-topic-per-word probabilities, called β (“beta”).  the model computes the probability of that term being generated from that topic. 
+```
+
+```{r}
+top_topics_dla <- topics_dla %>% 
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+datatable(top_topics_dla, class = 'cell-border stripe',
+          options = list(pageLength=10))
+```
+
+
+```{r}
+top_topics_dla  %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free",ncol=2) +
+  scale_y_reordered()
+```
+
+
+
+```{r,results='hide'}
+#Find probabilities associated with each topic assignment
+topicProbabilities <- as.data.frame(lda.model@gamma[1:15,]) 
+topicTerms<-as.data.frame(terms(lda.model, 15))
+topic<-cbind(topicTerms,topicProbabilities)
+```
+```{r, results='hide'}
+df1<-topicTerms
+df2<-topicProbabilities
+tot_cols <- ncol(df1) + ncol(df2)
+tot_rows <- nrow(df1) + nrow(df2)
+
+# Create empty output data.frame with desired number of rows and cols
+df <- data.frame(matrix(ncol=tot_cols, nrow=tot_rows))
+
+# Assign columns to output data.frame
+df[, c(seq(1, tot_cols, 2))] <- df1
+df[, seq(2, tot_cols, 2)] <- df2
+
+# Assign columns to output data.frame
+colnames(df) <- c(rbind(colnames(df1), colnames(df2)))
+
+datatable(df, class = 'cell-border stripe',
+          options = list(pageLength=15))
+```
+
